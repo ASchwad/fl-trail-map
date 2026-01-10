@@ -1,13 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Polyline, Popup, LayersControl } from "react-leaflet";
-import { LatLng, LeafletMouseEvent } from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Polyline,
+  Popup,
+  LayersControl,
+  useMap,
+  Marker,
+} from "react-leaflet";
+import L, { LatLng, LeafletMouseEvent } from "leaflet";
 import { Trail, GpxCoordinate } from "@/types/trail";
 import { parseGpxFile } from "@/lib/gpx-parser";
-import { Badge } from "@/components/ui/badge";
-import { ElevationProfile } from "@/components/ElevationProfile";
-import { cn } from "@/lib/utils";
+import { TrailPopupContent } from "@/components/TrailPopupContent";
+import {
+  difficultyColors,
+  statusColors,
+  defaultTrailColor,
+  unknownStatusColor,
+} from "@/lib/trail-colors";
 import "leaflet/dist/leaflet.css";
 
 export type ColorMode = "difficulty" | "status";
@@ -17,68 +29,112 @@ interface TrailMapProps {
   selectedTrail: Trail | null;
   onSelectTrail: (trail: Trail) => void;
   colorMode?: ColorMode;
+  zoomToTrail?: Trail | null;
 }
 
 // Finale Ligure center coordinates
 const CENTER: [number, number] = [44.17, 8.35];
 const DEFAULT_ZOOM = 12;
 
-const categoryColors: Record<string, string> = {
-  Enduro: "#ef4444",
-  "All Mountain": "#f97316",
-  "Cross Country": "#22c55e",
-  "Downhill/Free Ride": "#a855f7",
-  eMTB: "#3b82f6",
-  Gravel: "#d97706",
-  LBL: "#14b8a6",
-};
-
-const categoryBgColors: Record<string, string> = {
-  Enduro: "bg-red-500",
-  "All Mountain": "bg-orange-500",
-  "Cross Country": "bg-green-500",
-  "Downhill/Free Ride": "bg-purple-500",
-  eMTB: "bg-blue-500",
-  Gravel: "bg-amber-600",
-  LBL: "bg-teal-500",
-};
-
-const difficultyColors: Record<string, string> = {
-  easy: "#22c55e",      // green
-  moderate: "#3b82f6",  // blue
-  difficult: "#ef4444", // red
-};
-
-const statusColors: Record<string, string> = {
-  Open: "#22c55e",   // green
-  Closed: "#ef4444", // red
-};
-
 function getTrailColor(trail: Trail, colorMode: ColorMode): string {
   if (colorMode === "status") {
-    return statusColors[trail.status] || "#6b7280";
+    return statusColors[trail.status] || unknownStatusColor;
   }
-  // Default: difficulty-based coloring
-  const difficulty = trail.difficulty.overall?.toLowerCase();
-  if (difficulty && difficultyColors[difficulty]) {
-    return difficultyColors[difficulty];
+  // Default: difficulty-based coloring using S1-S4 technical difficulty
+  const technical = trail.difficulty?.technical;
+  if (technical && difficultyColors[technical]) {
+    return difficultyColors[technical];
   }
-  return "#9ca3af"; // gray for unknown difficulty
+  return defaultTrailColor;
 }
 
 interface TrailRouteProps {
   trail: Trail;
   isSelected: boolean;
   colorMode: ColorMode;
-  onTrailClick: (trail: Trail, position: LatLng, coordinates: GpxCoordinate[]) => void;
+  onTrailClick: (
+    trail: Trail,
+    position: LatLng,
+    coordinates: GpxCoordinate[]
+  ) => void;
 }
 
-function TrailRoute({ trail, isSelected, colorMode, onTrailClick }: TrailRouteProps) {
+// Component to show trail label at center point
+function TrailLabel({
+  trail,
+  coordinates,
+  isSelected,
+  onClick,
+}: {
+  trail: Trail;
+  coordinates: GpxCoordinate[];
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const map = useMap();
+  const [showLabel, setShowLabel] = useState(false);
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      setShowLabel(map.getZoom() >= 14);
+    };
+    updateVisibility();
+    map.on("zoomend", updateVisibility);
+    return () => {
+      map.off("zoomend", updateVisibility);
+    };
+  }, [map]);
+
+  if (!showLabel || coordinates.length === 0) return null;
+
+  // Get center point of trail
+  const midIndex = Math.floor(coordinates.length / 2);
+  const centerPoint = coordinates[midIndex];
+  const displayName = trail.name || trail.fullName;
+
+  // Create a divIcon for the text label
+  const textIcon = L.divIcon({
+    className: "trail-label",
+    html: `<span style="
+      background: rgba(255,255,255,0.9);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: ${isSelected ? "11px" : "10px"};
+      font-weight: ${isSelected ? "600" : "500"};
+      color: ${isSelected ? "#000" : "#374151"};
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      font-family: system-ui, sans-serif;
+      cursor: pointer;
+    ">${displayName}</span>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+
+  return (
+    <Marker
+      position={[centerPoint.lat, centerPoint.lng]}
+      icon={textIcon}
+      eventHandlers={{
+        click: onClick,
+      }}
+    />
+  );
+}
+
+function TrailRoute({
+  trail,
+  isSelected,
+  colorMode,
+  onTrailClick,
+}: TrailRouteProps) {
   const [coordinates, setCoordinates] = useState<GpxCoordinate[]>([]);
 
   useEffect(() => {
     if (trail.gpxFile) {
-      parseGpxFile(`/${trail.gpxFile}`).then(setCoordinates).catch(console.error);
+      parseGpxFile(`/${trail.gpxFile}`)
+        .then(setCoordinates)
+        .catch(console.error);
     }
   }, [trail.gpxFile]);
 
@@ -114,8 +170,50 @@ function TrailRoute({ trail, isSelected, colorMode, onTrailClick }: TrailRoutePr
           opacity: isSelected ? 1 : 0.6,
         }}
       />
+      {/* Trail name label */}
+      <TrailLabel
+        trail={trail}
+        coordinates={coordinates}
+        isSelected={isSelected}
+        onClick={() => {
+          const midIndex = Math.floor(coordinates.length / 2);
+          const centerPoint = coordinates[midIndex];
+          onTrailClick(
+            trail,
+            new LatLng(centerPoint.lat, centerPoint.lng),
+            coordinates
+          );
+        }}
+      />
     </>
   );
+}
+
+// Component to fly to a trail when selected from search
+function FlyToTrail({ trail }: { trail: Trail | null }) {
+  const map = useMap();
+  const [lastTrailSlug, setLastTrailSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!trail || trail.slug === lastTrailSlug) return;
+
+    // Load GPX and fly to bounds
+    if (trail.gpxFile) {
+      parseGpxFile(`/${trail.gpxFile}`)
+        .then((coordinates) => {
+          if (coordinates.length > 0) {
+            const bounds = L.latLngBounds(
+              coordinates.map((c) => [c.lat, c.lng] as [number, number])
+            );
+            map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            setLastTrailSlug(trail.slug);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [trail, map, lastTrailSlug]);
+
+  return null;
 }
 
 interface PopupInfo {
@@ -124,124 +222,20 @@ interface PopupInfo {
   coordinates: GpxCoordinate[];
 }
 
-interface TrailPopupContentProps {
-  trail: Trail;
-  coordinates: GpxCoordinate[];
-}
-
-function TrailPopupContent({ trail, coordinates }: TrailPopupContentProps) {
-  const categoryColor = categoryColors[trail.category] || "#6b7280";
-  const categoryBgColor = categoryBgColors[trail.category] || "bg-gray-500";
-
-  return (
-    <div className="min-w-70 max-w-80">
-      {/* Header */}
-      <div className="mb-2">
-        <div className="flex items-center gap-2 mb-1">
-          {trail.id && (
-            <span className="text-xs font-mono text-muted-foreground">
-              #{trail.id}
-            </span>
-          )}
-        </div>
-        <h3 className="font-semibold text-sm leading-tight">{trail.fullName}</h3>
-      </div>
-
-      {/* Badges */}
-      <div className="flex flex-wrap gap-1 mb-3">
-        <Badge
-          variant={trail.status === "Open" ? "default" : "destructive"}
-          className="text-xs"
-        >
-          {trail.status}
-        </Badge>
-        <Badge className={cn("text-xs text-white", categoryBgColor)}>
-          {trail.category}
-        </Badge>
-        {trail.area && (
-          <Badge variant="outline" className="text-xs">
-            {trail.area}
-          </Badge>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Distance:</span>
-          <span className="font-medium">{trail.distance.value} {trail.distance.unit}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Descent:</span>
-          <span className="font-medium">{trail.elevation.descent}m</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Ascent:</span>
-          <span className="font-medium">{trail.elevation.ascent}m</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">High:</span>
-          <span className="font-medium">{trail.elevation.highestPoint}m</span>
-        </div>
-        {trail.difficulty.technical && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Technical:</span>
-            <span className="font-medium">{trail.difficulty.technical}</span>
-          </div>
-        )}
-        {trail.difficulty.overall && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Overall:</span>
-            <span className="font-medium">{trail.difficulty.overall}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Elevation Profile */}
-      <div className="mb-3">
-        <div className="text-xs text-muted-foreground mb-1">Elevation Profile</div>
-        <ElevationProfile coordinates={coordinates} color={categoryColor} />
-      </div>
-
-      {/* Description */}
-      {trail.descriptionShort && (
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-          {trail.descriptionShort}
-        </p>
-      )}
-
-      {/* Source Link */}
-      <a
-        href={trail.sourceUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        View on Finale Outdoor
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          <polyline points="15 3 21 3 21 9" />
-          <line x1="10" y1="14" x2="21" y2="3" />
-        </svg>
-      </a>
-    </div>
-  );
-}
-
-export default function TrailMap({ trails, selectedTrail, onSelectTrail, colorMode = "difficulty" }: TrailMapProps) {
+export default function TrailMap({
+  trails,
+  selectedTrail,
+  onSelectTrail,
+  colorMode = "difficulty",
+  zoomToTrail = null,
+}: TrailMapProps) {
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
 
-  const handleTrailClick = (trail: Trail, position: LatLng, coordinates: GpxCoordinate[]) => {
+  const handleTrailClick = (
+    trail: Trail,
+    position: LatLng,
+    coordinates: GpxCoordinate[]
+  ) => {
     onSelectTrail(trail);
     setPopupInfo({ trail, position, coordinates });
   };
@@ -252,7 +246,9 @@ export default function TrailMap({ trails, selectedTrail, onSelectTrail, colorMo
       zoom={DEFAULT_ZOOM}
       className="h-full w-full"
       scrollWheelZoom={true}
+      zoomControl={false}
     >
+      <FlyToTrail trail={zoomToTrail} />
       <LayersControl position="topright">
         <LayersControl.BaseLayer name="CartoDB Positron" checked>
           <TileLayer

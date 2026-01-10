@@ -9,9 +9,16 @@ export interface Trail {
   area?: string;
   categoryCode: string;
   category: string;
-  difficulty: {
-    technical?: string;
-    overall?: string;
+  difficulty?: {
+    technical?: string;  // S0, S1, S2, S3, S4, S5 (Singletrail scale)
+    stamina?: number;    // 1-6 scale
+    technicalRating?: number;  // 1-6 scale
+    difficultyLevel?: string;  // "easy", "medium", "difficult", "very difficult"
+    overall?: string;  // "easy", "moderate", "difficult"
+  };
+  ratings?: {
+    landscape?: number;   // 1-6 scale
+    experience?: number;  // 1-6 scale
   };
   elevation: {
     highestPoint: number;

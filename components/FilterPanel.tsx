@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Filter, Palette } from "lucide-react";
+import { difficultyColors, difficultyBgClasses, statusColors } from "@/lib/trail-colors";
 
 export type ColorMode = "difficulty" | "status";
 
@@ -33,7 +34,9 @@ const categories = [
 ];
 
 const statusOptions = ["Open", "Closed"];
-const difficultyOptions = ["Easy", "Moderate", "Difficult"];
+
+// S1-S4 singletrail difficulty scale (S0 is too easy for MTB, S5 is extremely rare)
+const difficultyOptions = ["S1", "S2", "S3", "S4"];
 
 function toggleSelection(current: string[], value: string, allOptions: string[]): string[] {
   if (current.includes(value)) {
@@ -117,7 +120,7 @@ export function FilterPanel({
             {/* Difficulty Filter */}
             <div>
               <span className="text-xs text-muted-foreground block mb-1.5">
-                Difficulty
+                Difficulty (Singletrail Scale)
               </span>
               <div className="flex flex-wrap gap-1">
                 <Badge
@@ -127,16 +130,20 @@ export function FilterPanel({
                 >
                   All
                 </Badge>
-                {difficultyOptions.map((difficulty) => (
-                  <Badge
-                    key={difficulty}
-                    variant={selectedDifficulties.includes(difficulty) ? "default" : "outline"}
-                    className="cursor-pointer text-xs"
-                    onClick={() => handleDifficultyClick(difficulty)}
-                  >
-                    {difficulty}
-                  </Badge>
-                ))}
+                {difficultyOptions.map((difficulty) => {
+                  const isSelected = selectedDifficulties.includes(difficulty);
+                  const bgClass = difficultyBgClasses[difficulty];
+                  return (
+                    <Badge
+                      key={difficulty}
+                      variant={isSelected ? "default" : "outline"}
+                      className={`cursor-pointer text-xs ${isSelected ? bgClass + " text-white border-transparent" : ""}`}
+                      onClick={() => handleDifficultyClick(difficulty)}
+                    >
+                      {difficulty}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
 
@@ -237,34 +244,32 @@ export function FilterPanel({
             </div>
             {colorMode === "difficulty" && (
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-green-500" />
-                  Easy
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-blue-500" />
-                  Moderate
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-red-500" />
-                  Difficult
-                </span>
+                {difficultyOptions.map((difficulty) => (
+                  <span key={difficulty} className="flex items-center gap-1">
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: difficultyColors[difficulty] }}
+                    />
+                    {difficulty}
+                  </span>
+                ))}
                 <span className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-gray-400" />
-                  Unknown
+                  N/A
                 </span>
               </div>
             )}
             {colorMode === "status" && (
               <div className="mt-2 flex gap-4 text-xs">
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-green-500" />
-                  Open
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-red-500" />
-                  Closed
-                </span>
+                {statusOptions.map((status) => (
+                  <span key={status} className="flex items-center gap-1">
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: statusColors[status] }}
+                    />
+                    {status}
+                  </span>
+                ))}
               </div>
             )}
           </div>
