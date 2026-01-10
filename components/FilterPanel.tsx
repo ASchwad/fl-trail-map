@@ -22,6 +22,8 @@ interface FilterPanelProps {
   // Stats
   filteredCount: number;
   totalCount: number;
+  // Status update timestamp
+  lastStatusUpdate?: string | null;
 }
 
 const categories = [
@@ -65,9 +67,15 @@ export function FilterPanel({
   onColorModeChange,
   filteredCount,
   totalCount,
+  lastStatusUpdate,
 }: FilterPanelProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
-  const [isDisplayOpen, setIsDisplayOpen] = useState(true);
+  // Collapsed by default on mobile (window check for SSR safety)
+  const getInitialCollapsed = () => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  };
+  const [isFilterOpen, setIsFilterOpen] = useState(!getInitialCollapsed());
+  const [isDisplayOpen, setIsDisplayOpen] = useState(!getInitialCollapsed());
 
   const handleCategoryClick = (cat: string) => {
     onCategoriesChange(toggleSelection(selectedCategories, cat, categories));
@@ -272,6 +280,13 @@ export function FilterPanel({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Last updated timestamp - always visible */}
+        {lastStatusUpdate && (
+          <div className="px-3 py-2 border-t text-xs text-muted-foreground">
+            Trail status updated {lastStatusUpdate}
           </div>
         )}
       </div>

@@ -48,7 +48,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [zoomToTrail, setZoomToTrail] = useState<Trail | null>(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   // Filter state (arrays for multi-select, empty = all)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -148,8 +150,8 @@ export default function Home() {
         zoomToTrail={zoomToTrail}
       />
 
-      {/* Search bar overlay in top-center */}
-      <div ref={searchRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-1000 w-80">
+      {/* Search bar overlay in top-center (hidden on mobile) */}
+      <div ref={searchRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-1000 w-80 hidden md:block">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -206,13 +208,76 @@ export default function Home() {
           onColorModeChange={setColorMode}
           filteredCount={filteredTrails.length}
           totalCount={trails.length}
+          lastStatusUpdate={lastStatusUpdate ? formatRelativeTime(lastStatusUpdate) : null}
         />
       </div>
 
-      {/* Last refreshed timestamp in bottom-left */}
-      {lastStatusUpdate && (
-        <div className="absolute bottom-4 left-4 z-1000 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-sm text-xs text-muted-foreground">
-          Trail status last updated {formatRelativeTime(lastStatusUpdate)}
+      {/* Mobile search button (floating action button) */}
+      <button
+        onClick={() => setIsMobileSearchOpen(true)}
+        className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-1000 bg-primary text-white p-4 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+        aria-label="Search trails"
+      >
+        <Search className="h-5 w-5" />
+      </button>
+
+      {/* Mobile search overlay */}
+      {isMobileSearchOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-1100 bg-black/50"
+          onClick={() => setIsMobileSearchOpen(false)}
+        >
+          <div
+            ref={mobileSearchRef}
+            className="absolute bottom-20 left-4 right-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search trails..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                className="pl-9 pr-9 bg-white shadow-md"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {/* Mobile search results dropdown (shows above input) */}
+            {searchResults.length > 0 && (
+              <div className="absolute bottom-full mb-1 w-full bg-white rounded-md shadow-lg border max-h-60 overflow-y-auto">
+                {searchResults.map((trail) => (
+                  <button
+                    key={trail.slug}
+                    onClick={() => {
+                      handleSelectSearchResult(trail);
+                      setIsMobileSearchOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 border-b last:border-b-0 flex flex-col"
+                  >
+                    <span className="font-medium text-sm">{trail.fullName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {trail.category} • {trail.status} • {trail.distance.value} {trail.distance.unit}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchQuery && searchResults.length === 0 && (
+              <div className="absolute bottom-full mb-1 w-full bg-white rounded-md shadow-lg border p-3 text-sm text-muted-foreground">
+                No trails found
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
