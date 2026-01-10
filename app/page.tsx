@@ -56,7 +56,7 @@ export default function Home() {
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
 
   // Display state
-  const [colorMode, setColorMode] = useState<ColorMode>("difficulty");
+  const [colorMode, setColorMode] = useState<ColorMode>("status");
 
   // Filter trails
   const filteredTrails = useMemo(() => {
