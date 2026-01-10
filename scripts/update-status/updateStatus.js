@@ -158,23 +158,25 @@ async function updateStatuses() {
   // Step 3: Match and prepare updates
   console.log("\nMatching statuses...");
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
-  const statusUpdates = [];
+  const allStatuses = [];
+  const statusChanges = [];
   const notFound = [];
-  const unchanged = [];
 
   for (const trail of trails) {
     const newStatus = findStatusForTrail(trail, lookup);
 
     if (newStatus) {
+      allStatuses.push({
+        trail_id: trail.id,
+        trail_name: trail.name,
+        status: newStatus,
+      });
       if (trail.current_status !== newStatus) {
-        statusUpdates.push({
-          trail_id: trail.id,
+        statusChanges.push({
           trail_name: trail.name,
           old_status: trail.current_status,
           new_status: newStatus,
         });
-      } else {
-        unchanged.push(trail.name);
       }
     } else {
       notFound.push(trail.name);
@@ -183,40 +185,37 @@ async function updateStatuses() {
 
   // Step 4: Report changes
   console.log("\nStatus Changes:");
-  if (statusUpdates.length === 0) {
+  if (statusChanges.length === 0) {
     console.log("   No status changes detected.");
   } else {
-    for (const update of statusUpdates) {
-      const icon = update.new_status === "Open" ? "[OPEN]" : "[CLOSED]";
-      console.log(`   ${icon} ${update.trail_name}: ${update.old_status} -> ${update.new_status}`);
+    for (const change of statusChanges) {
+      const icon = change.new_status === "Open" ? "[OPEN]" : "[CLOSED]";
+      console.log(`   ${icon} ${change.trail_name}: ${change.old_status} -> ${change.new_status}`);
     }
   }
 
-  // Step 5: Insert status records into Supabase
-  if (statusUpdates.length > 0 && !DRY_RUN) {
+  // Step 5: Insert status records into Supabase (always insert all statuses to update timestamp)
+  if (allStatuses.length > 0 && !DRY_RUN) {
     console.log("\nUpdating Supabase...");
 
-    const insertData = statusUpdates.map((update) => ({
-      trail_id: update.trail_id,
-      status: update.new_status,
+    const insertData = allStatuses.map((entry) => ({
+      trail_id: entry.trail_id,
+      status: entry.status,
       status_date: today,
       notes: `Auto-updated from finaleoutdoor.com`,
     }));
 
-    // Use upsert to handle the unique constraint on (trail_id, status_date)
-    const { error: upsertError } = await supabase
+    // Insert new status records (each scraper run creates new rows for history)
+    const { error: insertError } = await supabase
       .from("trail_status")
-      .upsert(insertData, {
-        onConflict: "trail_id,status_date",
-        ignoreDuplicates: false,
-      });
+      .insert(insertData);
 
-    if (upsertError) {
-      console.error("Failed to update trail statuses:", upsertError.message);
+    if (insertError) {
+      console.error("Failed to insert trail statuses:", insertError.message);
       process.exit(1);
     }
 
-    console.log(`   Successfully updated ${statusUpdates.length} trail statuses`);
+    console.log(`   Successfully inserted ${allStatuses.length} trail statuses (${statusChanges.length} changed)`);
   }
 
   // Summary
@@ -224,8 +223,8 @@ async function updateStatuses() {
   console.log("\n" + "=".repeat(60));
   console.log("Summary:");
   console.log(`   Total trails in DB:     ${trails.length}`);
-  console.log(`   Status changes:         ${statusUpdates.length}`);
-  console.log(`   Unchanged:              ${unchanged.length}`);
+  console.log(`   Statuses updated:       ${allStatuses.length}`);
+  console.log(`   Status changes:         ${statusChanges.length}`);
   console.log(`   Not found in scrape:    ${notFound.length}`);
   console.log(`   Duration:               ${duration}s`);
   console.log("=".repeat(60));

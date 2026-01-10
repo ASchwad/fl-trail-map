@@ -34,6 +34,10 @@ export interface Trail {
   descriptionShort: string;
   activityType: string;
   gpxFile: string;
+  // Status metadata from Supabase
+  statusDate?: string;
+  statusNotes?: string;
+  statusCreatedAt?: string;
 }
 
 export interface TrailsData {

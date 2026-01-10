@@ -45,6 +45,7 @@ export function TrailPopupContent({
             "text-xs text-white",
             statusBgClasses[trail.status] || "bg-gray-500"
           )}
+          title={trail.statusDate ? `Updated: ${new Date(trail.statusDate).toLocaleDateString()}` : undefined}
         >
           {trail.status}
         </Badge>
