@@ -10,10 +10,13 @@ import { ElevationProfile } from "@/components/ElevationProfile";
 import { cn } from "@/lib/utils";
 import "leaflet/dist/leaflet.css";
 
+export type ColorMode = "difficulty" | "status";
+
 interface TrailMapProps {
   trails: Trail[];
   selectedTrail: Trail | null;
   onSelectTrail: (trail: Trail) => void;
+  colorMode?: ColorMode;
 }
 
 // Finale Ligure center coordinates
@@ -40,13 +43,37 @@ const categoryBgColors: Record<string, string> = {
   LBL: "bg-teal-500",
 };
 
+const difficultyColors: Record<string, string> = {
+  easy: "#22c55e",      // green
+  moderate: "#3b82f6",  // blue
+  difficult: "#ef4444", // red
+};
+
+const statusColors: Record<string, string> = {
+  Open: "#22c55e",   // green
+  Closed: "#ef4444", // red
+};
+
+function getTrailColor(trail: Trail, colorMode: ColorMode): string {
+  if (colorMode === "status") {
+    return statusColors[trail.status] || "#6b7280";
+  }
+  // Default: difficulty-based coloring
+  const difficulty = trail.difficulty.overall?.toLowerCase();
+  if (difficulty && difficultyColors[difficulty]) {
+    return difficultyColors[difficulty];
+  }
+  return "#9ca3af"; // gray for unknown difficulty
+}
+
 interface TrailRouteProps {
   trail: Trail;
   isSelected: boolean;
+  colorMode: ColorMode;
   onTrailClick: (trail: Trail, position: LatLng, coordinates: GpxCoordinate[]) => void;
 }
 
-function TrailRoute({ trail, isSelected, onTrailClick }: TrailRouteProps) {
+function TrailRoute({ trail, isSelected, colorMode, onTrailClick }: TrailRouteProps) {
   const [coordinates, setCoordinates] = useState<GpxCoordinate[]>([]);
 
   useEffect(() => {
@@ -58,7 +85,7 @@ function TrailRoute({ trail, isSelected, onTrailClick }: TrailRouteProps) {
   if (coordinates.length === 0) return null;
 
   const positions: [number, number][] = coordinates.map((c) => [c.lat, c.lng]);
-  const color = categoryColors[trail.category] || "#6b7280";
+  const color = getTrailColor(trail, colorMode);
 
   const handleClick = (e: LeafletMouseEvent) => {
     onTrailClick(trail, e.latlng, coordinates);
@@ -211,7 +238,7 @@ function TrailPopupContent({ trail, coordinates }: TrailPopupContentProps) {
   );
 }
 
-export default function TrailMap({ trails, selectedTrail, onSelectTrail }: TrailMapProps) {
+export default function TrailMap({ trails, selectedTrail, onSelectTrail, colorMode = "difficulty" }: TrailMapProps) {
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
 
   const handleTrailClick = (trail: Trail, position: LatLng, coordinates: GpxCoordinate[]) => {
@@ -263,6 +290,7 @@ export default function TrailMap({ trails, selectedTrail, onSelectTrail }: Trail
           key={trail.slug}
           trail={trail}
           isSelected={selectedTrail?.slug === trail.slug}
+          colorMode={colorMode}
           onTrailClick={handleTrailClick}
         />
       ))}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Trail, TrailsData } from "@/types/trail";
-import { TrailList } from "@/components/TrailList";
+import { FilterPanel, ColorMode } from "@/components/FilterPanel";
 import trailsData from "@/data/trails.json";
 
 // Dynamic import for Leaflet (SSR not supported)
@@ -20,28 +20,55 @@ export default function Home() {
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
   const trails = (trailsData as TrailsData).trails;
 
+  // Filter state (arrays for multi-select, empty = all)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
+
+  // Display state
+  const [colorMode, setColorMode] = useState<ColorMode>("difficulty");
+
+  // Filter trails
+  const filteredTrails = useMemo(() => {
+    return trails.filter((trail) => {
+      const matchesCategory =
+        selectedCategories.length === 0 || selectedCategories.includes(trail.category);
+      const matchesStatus =
+        selectedStatuses.length === 0 || selectedStatuses.includes(trail.status);
+      const matchesDifficulty =
+        selectedDifficulties.length === 0 ||
+        selectedDifficulties.some(
+          (d) => trail.difficulty.overall?.toLowerCase() === d.toLowerCase()
+        );
+      return matchesCategory && matchesStatus && matchesDifficulty;
+    });
+  }, [trails, selectedCategories, selectedStatuses, selectedDifficulties]);
+
   return (
-    <div className="flex h-screen">
-      <aside className="w-96 border-r flex flex-col bg-white min-h-0">
-        <div className="p-3 border-b">
-          <h1 className="text-lg font-bold">Finale Enduro Trails</h1>
-          <p className="text-xs text-muted-foreground">
-            {trails.length} trails in the Finale Ligure region
-          </p>
-        </div>
-        <TrailList
-          trails={trails}
-          selectedTrail={selectedTrail}
-          onSelectTrail={setSelectedTrail}
+    <div className="relative h-screen w-full">
+      {/* Map takes full screen */}
+      <TrailMap
+        trails={filteredTrails}
+        selectedTrail={selectedTrail}
+        onSelectTrail={setSelectedTrail}
+        colorMode={colorMode}
+      />
+
+      {/* Filter panel overlay in top-left */}
+      <div className="absolute top-4 left-4 z-1000 w-72">
+        <FilterPanel
+          selectedCategories={selectedCategories}
+          onCategoriesChange={setSelectedCategories}
+          selectedStatuses={selectedStatuses}
+          onStatusesChange={setSelectedStatuses}
+          selectedDifficulties={selectedDifficulties}
+          onDifficultiesChange={setSelectedDifficulties}
+          colorMode={colorMode}
+          onColorModeChange={setColorMode}
+          filteredCount={filteredTrails.length}
+          totalCount={trails.length}
         />
-      </aside>
-      <main className="flex-1">
-        <TrailMap
-          trails={trails}
-          selectedTrail={selectedTrail}
-          onSelectTrail={setSelectedTrail}
-        />
-      </main>
+      </div>
     </div>
   );
 }
