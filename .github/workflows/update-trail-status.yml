@@ -8,6 +8,7 @@ on:
 jobs:
   update-status:
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: scripts/update-status
@@ -27,5 +28,5 @@ jobs:
       - name: Update trail statuses
         run: node updateStatus.js
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
