@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Trail } from "@/types/trail";
 
 interface TrailWithStatus {
@@ -72,7 +72,7 @@ function mapSupabaseTrailToTrail(dbTrail: TrailWithStatus): Trail {
 }
 
 async function fetchTrails(): Promise<Trail[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("trails_with_status")
     .select("*")
     .order("trail_number", { ascending: true, nullsFirst: false });
