@@ -1,0 +1,12 @@
+{
+  "name": "finale-trail-status-updater",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "update-status": "node updateStatus.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "dotenv": "^16.4.5"
+  }
+}
