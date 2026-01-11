@@ -13,16 +13,18 @@ import {
 interface TrailPopupContentProps {
   trail: Trail;
   coordinates: GpxCoordinate[];
+  className?: string;
 }
 
 export function TrailPopupContent({
   trail,
   coordinates,
+  className,
 }: TrailPopupContentProps) {
   const categoryColor = categoryColors[trail.category] || "#6b7280";
 
   return (
-    <div className="min-w-70 max-w-80">
+    <div className={cn("min-w-70 max-w-80", className)}>
       {/* Header */}
       <div className="mb-2">
         <div className="flex items-center gap-2 mb-1">

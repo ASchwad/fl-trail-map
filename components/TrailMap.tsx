@@ -28,9 +28,10 @@ export type ColorMode = "difficulty" | "status";
 interface TrailMapProps {
   trails: Trail[];
   selectedTrail: Trail | null;
-  onSelectTrail: (trail: Trail | null) => void;
+  onSelectTrail: (trail: Trail | null, coordinates?: GpxCoordinate[]) => void;
   colorMode?: ColorMode;
   zoomToTrail?: Trail | null;
+  showPopup?: boolean;
 }
 
 // Finale Ligure center coordinates
@@ -250,6 +251,7 @@ export default function TrailMap({
   onSelectTrail,
   colorMode = "difficulty",
   zoomToTrail = null,
+  showPopup = true,
 }: TrailMapProps) {
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
   const trailClickedRef = useRef(false);
@@ -260,8 +262,10 @@ export default function TrailMap({
     coordinates: GpxCoordinate[]
   ) => {
     trailClickedRef.current = true;
-    onSelectTrail(trail);
-    setPopupInfo({ trail, position, coordinates });
+    onSelectTrail(trail, coordinates);
+    if (showPopup) {
+      setPopupInfo({ trail, position, coordinates });
+    }
   };
 
   const handleMapClick = () => {
@@ -321,8 +325,8 @@ export default function TrailMap({
         />
       ))}
 
-      {/* Trail Detail Popup */}
-      {popupInfo && (
+      {/* Trail Detail Popup - only show on desktop when showPopup is true */}
+      {showPopup && popupInfo && (
         <Popup
           position={popupInfo.position}
           eventHandlers={{

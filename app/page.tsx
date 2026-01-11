@@ -2,11 +2,18 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Trail } from "@/types/trail";
+import { Trail, GpxCoordinate } from "@/types/trail";
 import { FilterPanel, ColorMode } from "@/components/FilterPanel";
 import { Input } from "@/components/ui/input";
 import { Search, X, Loader2 } from "lucide-react";
 import { useTrails } from "@/lib/hooks/useTrails";
+import { TrailBottomSheet } from "@/components/TrailBottomSheet";
+
+// Helper to check if we're on mobile (same pattern as FilterPanel)
+const getIsMobile = () => {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth < 768;
+};
 
 const relativeTimeFormat = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
@@ -33,7 +40,15 @@ const TrailMap = dynamic(() => import("@/components/TrailMap"), {
 
 export default function Home() {
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [selectedTrailCoordinates, setSelectedTrailCoordinates] = useState<GpxCoordinate[]>([]);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { data: trails = [], isLoading, error } = useTrails();
+
+  // Set isMobile after hydration (SSR always returns false)
+  useEffect(() => {
+    setIsMobile(getIsMobile());
+  }, []);
 
   // Get the most recent status update timestamp from trails
   const lastStatusUpdate = useMemo(() => {
@@ -105,6 +120,27 @@ export default function Home() {
     setZoomToTrail(trail);
     setSearchQuery("");
     setIsSearchFocused(false);
+    if (isMobile) {
+      setIsBottomSheetOpen(true);
+    }
+  };
+
+  // Handler for trail selection from the map
+  const handleSelectTrail = (trail: Trail | null, coordinates?: GpxCoordinate[]) => {
+    setSelectedTrail(trail);
+    setSelectedTrailCoordinates(coordinates || []);
+    if (trail && isMobile) {
+      setIsBottomSheetOpen(true);
+    }
+  };
+
+  // Handler for bottom sheet close
+  const handleBottomSheetOpenChange = (open: boolean) => {
+    setIsBottomSheetOpen(open);
+    if (!open) {
+      setSelectedTrail(null);
+      setSelectedTrailCoordinates([]);
+    }
   };
 
   // Loading state
@@ -145,9 +181,10 @@ export default function Home() {
       <TrailMap
         trails={filteredTrails}
         selectedTrail={selectedTrail}
-        onSelectTrail={setSelectedTrail}
+        onSelectTrail={handleSelectTrail}
         colorMode={colorMode}
         zoomToTrail={zoomToTrail}
+        showPopup={!isMobile}
       />
 
       {/* Search bar overlay in top-center (hidden on mobile) */}
@@ -279,6 +316,16 @@ export default function Home() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Mobile Trail Details Bottom Sheet */}
+      {isMobile && (
+        <TrailBottomSheet
+          trail={selectedTrail}
+          coordinates={selectedTrailCoordinates}
+          open={isBottomSheetOpen}
+          onOpenChange={handleBottomSheetOpenChange}
+        />
       )}
     </div>
   );
