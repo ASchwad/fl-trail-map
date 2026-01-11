@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Filter, Palette } from "lucide-react";
 import { difficultyColors, difficultyBgClasses, statusColors } from "@/lib/trail-colors";
 
@@ -232,24 +238,18 @@ export function FilterPanel({
             <span className="text-xs text-muted-foreground block mb-1.5">
               Trail Coloring
             </span>
-            <div className="flex gap-2">
-              <Button
-                variant={colorMode === "difficulty" ? "default" : "outline"}
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => onColorModeChange("difficulty")}
-              >
-                By Difficulty
-              </Button>
-              <Button
-                variant={colorMode === "status" ? "default" : "outline"}
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => onColorModeChange("status")}
-              >
-                By Status
-              </Button>
-            </div>
+            <Select
+              value={colorMode}
+              onValueChange={(v) => onColorModeChange(v as ColorMode)}
+            >
+              <SelectTrigger className="w-full h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="difficulty">By Difficulty</SelectItem>
+                <SelectItem value="status">By Status</SelectItem>
+              </SelectContent>
+            </Select>
             {colorMode === "difficulty" && (
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 {difficultyOptions.map((difficulty) => (
