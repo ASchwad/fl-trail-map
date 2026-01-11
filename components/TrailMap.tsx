@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -8,6 +8,7 @@ import {
   Popup,
   LayersControl,
   useMap,
+  useMapEvents,
   Marker,
 } from "react-leaflet";
 import L, { LatLng, LeafletMouseEvent } from "leaflet";
@@ -27,7 +28,7 @@ export type ColorMode = "difficulty" | "status";
 interface TrailMapProps {
   trails: Trail[];
   selectedTrail: Trail | null;
-  onSelectTrail: (trail: Trail) => void;
+  onSelectTrail: (trail: Trail | null) => void;
   colorMode?: ColorMode;
   zoomToTrail?: Trail | null;
 }
@@ -189,6 +190,27 @@ function TrailRoute({
   );
 }
 
+// Component to handle clicks on empty map area (deselect trail)
+function MapClickHandler({
+  onMapClick,
+  trailClickedRef,
+}: {
+  onMapClick: () => void;
+  trailClickedRef: React.MutableRefObject<boolean>;
+}) {
+  useMapEvents({
+    click: () => {
+      // Only deselect if we didn't just click on a trail
+      if (trailClickedRef.current) {
+        trailClickedRef.current = false;
+        return;
+      }
+      onMapClick();
+    },
+  });
+  return null;
+}
+
 // Component to fly to a trail when selected from search
 function FlyToTrail({ trail }: { trail: Trail | null }) {
   const map = useMap();
@@ -230,14 +252,21 @@ export default function TrailMap({
   zoomToTrail = null,
 }: TrailMapProps) {
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
+  const trailClickedRef = useRef(false);
 
   const handleTrailClick = (
     trail: Trail,
     position: LatLng,
     coordinates: GpxCoordinate[]
   ) => {
+    trailClickedRef.current = true;
     onSelectTrail(trail);
     setPopupInfo({ trail, position, coordinates });
+  };
+
+  const handleMapClick = () => {
+    onSelectTrail(null);
+    setPopupInfo(null);
   };
 
   return (
@@ -249,6 +278,7 @@ export default function TrailMap({
       zoomControl={false}
     >
       <FlyToTrail trail={zoomToTrail} />
+      <MapClickHandler onMapClick={handleMapClick} trailClickedRef={trailClickedRef} />
       <LayersControl position="topright">
         <LayersControl.BaseLayer name="CartoDB Positron" checked>
           <TileLayer
