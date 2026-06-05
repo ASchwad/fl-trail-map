@@ -6,9 +6,9 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const GPX_BUCKET = "gpx-files";
 
 function getGpxUrl(gpxPath: string): string {
-  // gpxPath can be "/gpx/123-trail-name.gpx" or "gpx/123-trail-name.gpx"
-  // We need just the filename for Supabase Storage
-  const filename = gpxPath.replace(/^\/?gpx\//, "");
+  // gpxPath can be "/gpx/123-trail-name.gpx", "gpx/123-trail-name.gpx" or a
+  // bare filename — we need just the filename for Supabase Storage
+  const filename = gpxPath.replace(/^\/?(gpx\/)?/, "");
   return `${SUPABASE_URL}/storage/v1/object/public/${GPX_BUCKET}/${filename}`;
 }
 

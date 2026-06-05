@@ -1,0 +1,367 @@
+"use client";
+
+import { useState, useMemo, useRef, useEffect, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { Trail, GpxCoordinate } from "@/types/trail";
+import { Region } from "@/lib/regions";
+import { FilterPanel, ColorMode } from "@/components/FilterPanel";
+import { Input } from "@/components/ui/input";
+import { Search, X, Loader2, ArrowLeft } from "lucide-react";
+import { useTrails } from "@/lib/hooks/useTrails";
+import { TrailBottomSheet } from "@/components/TrailBottomSheet";
+
+// Track mobile viewport (SSR snapshot is always false)
+const subscribeToResize = (callback: () => void) => {
+  window.addEventListener("resize", callback);
+  return () => window.removeEventListener("resize", callback);
+};
+const getIsMobile = () => window.innerWidth < 768;
+
+const relativeTimeFormat = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+function formatRelativeTime(timestamp: number): string {
+  const seconds = Math.floor((timestamp - Date.now()) / 1000);
+  if (Math.abs(seconds) < 60) return relativeTimeFormat.format(seconds, "second");
+  const minutes = Math.floor(seconds / 60);
+  if (Math.abs(minutes) < 60) return relativeTimeFormat.format(minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (Math.abs(hours) < 24) return relativeTimeFormat.format(hours, "hour");
+  const days = Math.floor(hours / 24);
+  return relativeTimeFormat.format(days, "day");
+}
+
+// Dynamic import for Leaflet (SSR not supported)
+const TrailMap = dynamic(() => import("@/components/TrailMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full flex items-center justify-center bg-gray-100">
+      Loading map...
+    </div>
+  ),
+});
+
+const STATUS_ORDER = ["Open", "Limited", "Closed", "Unknown"];
+
+export function RegionExplorer({ region }: { region: Region }) {
+  const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [selectedTrailCoordinates, setSelectedTrailCoordinates] = useState<GpxCoordinate[]>([]);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const isMobile = useSyncExternalStore(subscribeToResize, getIsMobile, () => false);
+  const { data: trails = [], isLoading, error } = useTrails(region.id);
+
+  // Get the most recent status update timestamp from trails
+  const lastStatusUpdate = useMemo(() => {
+    const timestamps = trails
+      .map((t) => t.statusCreatedAt)
+      .filter((ts): ts is string => !!ts)
+      .map((ts) => new Date(ts).getTime());
+    return timestamps.length > 0 ? Math.max(...timestamps) : null;
+  }, [trails]);
+
+  // Filter options derived from this region's trails
+  const categoryOptions = useMemo(
+    () => [...new Set(trails.map((t) => t.category).filter(Boolean))].sort(),
+    [trails]
+  );
+  const statusOptions = useMemo(
+    () =>
+      STATUS_ORDER.filter((status) => trails.some((t) => t.status === status)),
+    [trails]
+  );
+  const difficultyOptions = useMemo(
+    () =>
+      [...new Set(
+        trails
+          .map((t) => t.difficulty?.technical)
+          .filter((d): d is string => !!d)
+      )].sort(),
+    [trails]
+  );
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [zoomToTrail, setZoomToTrail] = useState<Trail | null>(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+
+  // Filter state (arrays for multi-select, empty = all)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
+
+  // Display state
+  const [colorMode, setColorMode] = useState<ColorMode>("status");
+
+  // Filter trails
+  const filteredTrails = useMemo(() => {
+    return trails.filter((trail) => {
+      const matchesCategory =
+        selectedCategories.length === 0 || selectedCategories.includes(trail.category);
+      const matchesStatus =
+        selectedStatuses.length === 0 || selectedStatuses.includes(trail.status);
+      // Filter by S1-S4 technical difficulty
+      const matchesDifficulty =
+        selectedDifficulties.length === 0 ||
+        (trail.difficulty?.technical && selectedDifficulties.includes(trail.difficulty.technical));
+      return matchesCategory && matchesStatus && matchesDifficulty;
+    });
+  }, [trails, selectedCategories, selectedStatuses, selectedDifficulties]);
+
+  // Search results (search across all trails, not just filtered)
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return trails
+      .filter(
+        (trail) =>
+          trail.fullName.toLowerCase().includes(query) ||
+          trail.name.toLowerCase().includes(query) ||
+          (trail.id && trail.id.toString().includes(query))
+      )
+      .slice(0, 8); // Limit to 8 results
+  }, [trails, searchQuery]);
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelectSearchResult = (trail: Trail) => {
+    setSelectedTrail(trail);
+    setZoomToTrail(trail);
+    setSearchQuery("");
+    setIsSearchFocused(false);
+    if (isMobile) {
+      setIsBottomSheetOpen(true);
+    }
+  };
+
+  // Handler for trail selection from the map
+  const handleSelectTrail = (trail: Trail | null, coordinates?: GpxCoordinate[]) => {
+    setSelectedTrail(trail);
+    setSelectedTrailCoordinates(coordinates || []);
+    if (trail && isMobile) {
+      setIsBottomSheetOpen(true);
+    }
+  };
+
+  // Handler for bottom sheet close
+  const handleBottomSheetOpenChange = (open: boolean) => {
+    setIsBottomSheetOpen(open);
+    if (!open) {
+      setSelectedTrail(null);
+      setSelectedTrailCoordinates([]);
+    }
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Loading trails...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-md text-center">
+          <h2 className="text-lg font-semibold text-red-600 mb-2">Error loading trails</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : "An unexpected error occurred"}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-screen w-full">
+      {/* Map takes full screen */}
+      <TrailMap
+        trails={filteredTrails}
+        selectedTrail={selectedTrail}
+        onSelectTrail={handleSelectTrail}
+        colorMode={colorMode}
+        zoomToTrail={zoomToTrail}
+        showPopup={!isMobile}
+        center={region.center}
+        zoom={region.zoom}
+      />
+
+      {/* Search bar overlay in top-center (hidden on mobile) */}
+      <div ref={searchRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-1000 w-80 hidden md:block">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search trails..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            className="pl-9 pr-9 bg-white shadow-md"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {/* Search results dropdown */}
+        {isSearchFocused && searchResults.length > 0 && (
+          <div className="absolute top-full mt-1 w-full bg-white rounded-md shadow-lg border max-h-80 overflow-y-auto">
+            {searchResults.map((trail) => (
+              <button
+                key={trail.slug}
+                onClick={() => handleSelectSearchResult(trail)}
+                className="w-full px-3 py-2 text-left hover:bg-gray-100 border-b last:border-b-0 flex flex-col"
+              >
+                <span className="font-medium text-sm">{trail.fullName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {trail.category} • {trail.status}
+                  {trail.distance.value > 0 && ` • ${trail.distance.value} ${trail.distance.unit}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {isSearchFocused && searchQuery && searchResults.length === 0 && (
+          <div className="absolute top-full mt-1 w-full bg-white rounded-md shadow-lg border p-3 text-sm text-muted-foreground">
+            No trails found
+          </div>
+        )}
+      </div>
+
+      {/* Region header + filter panel overlay in top-left */}
+      <div className="absolute top-4 left-4 z-1000 w-72 space-y-2">
+        <Link
+          href="/"
+          className="flex items-center gap-2 bg-white border rounded-lg shadow-sm px-3 py-2 hover:bg-gray-50 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">{region.name}</span>
+          <span className="text-xs text-muted-foreground">{region.location}</span>
+        </Link>
+        <FilterPanel
+          selectedCategories={selectedCategories}
+          onCategoriesChange={setSelectedCategories}
+          selectedStatuses={selectedStatuses}
+          onStatusesChange={setSelectedStatuses}
+          selectedDifficulties={selectedDifficulties}
+          onDifficultiesChange={setSelectedDifficulties}
+          categoryOptions={categoryOptions}
+          statusOptions={statusOptions}
+          difficultyOptions={difficultyOptions}
+          colorMode={colorMode}
+          onColorModeChange={setColorMode}
+          filteredCount={filteredTrails.length}
+          totalCount={trails.length}
+          lastStatusUpdate={lastStatusUpdate ? formatRelativeTime(lastStatusUpdate) : null}
+        />
+      </div>
+
+      {/* Mobile search button (floating action button) */}
+      <button
+        onClick={() => setIsMobileSearchOpen(true)}
+        className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-1000 bg-primary text-white p-4 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+        aria-label="Search trails"
+      >
+        <Search className="h-5 w-5" />
+      </button>
+
+      {/* Mobile search overlay */}
+      {isMobileSearchOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-1100 bg-black/50"
+          onClick={() => setIsMobileSearchOpen(false)}
+        >
+          <div
+            ref={mobileSearchRef}
+            className="absolute bottom-20 left-4 right-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search trails..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                className="pl-9 pr-9 bg-white shadow-md"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {/* Mobile search results dropdown (shows above input) */}
+            {searchResults.length > 0 && (
+              <div className="absolute bottom-full mb-1 w-full bg-white rounded-md shadow-lg border max-h-60 overflow-y-auto">
+                {searchResults.map((trail) => (
+                  <button
+                    key={trail.slug}
+                    onClick={() => {
+                      handleSelectSearchResult(trail);
+                      setIsMobileSearchOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 border-b last:border-b-0 flex flex-col"
+                  >
+                    <span className="font-medium text-sm">{trail.fullName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {trail.category} • {trail.status}
+                      {trail.distance.value > 0 && ` • ${trail.distance.value} ${trail.distance.unit}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchQuery && searchResults.length === 0 && (
+              <div className="absolute bottom-full mb-1 w-full bg-white rounded-md shadow-lg border p-3 text-sm text-muted-foreground">
+                No trails found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Trail Details Bottom Sheet */}
+      {isMobile && (
+        <TrailBottomSheet
+          trail={selectedTrail}
+          coordinates={selectedTrailCoordinates}
+          open={isBottomSheetOpen}
+          onOpenChange={handleBottomSheetOpenChange}
+        />
+      )}
+    </div>
+  );
+}

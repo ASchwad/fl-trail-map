@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getSupabase } from "@/lib/supabase";
-import type { Trail } from "@/types/trail";
+import type { Trail, TrailStatus } from "@/types/trail";
 
 interface TrailWithStatus {
   id: string;
@@ -12,6 +12,7 @@ interface TrailWithStatus {
   full_name: string;
   name: string;
   area: string | null;
+  region: string;
   category_code: string | null;
   category: string | null;
   difficulty_technical: string | null;
@@ -24,10 +25,12 @@ interface TrailWithStatus {
   duration_minutes: number | null;
   description_short: string | null;
   gpx_file: string | null;
+  marker_lat: number | null;
+  marker_lng: number | null;
   source_url: string | null;
   created_at: string;
   updated_at: string;
-  current_status: "Open" | "Closed";
+  current_status: TrailStatus;
   status_date: string | null;
   status_notes: string | null;
   status_created_at: string | null;
@@ -41,7 +44,8 @@ function mapSupabaseTrailToTrail(dbTrail: TrailWithStatus): Trail {
     fullName: dbTrail.full_name,
     name: dbTrail.name,
     id: dbTrail.trail_number ? parseInt(dbTrail.trail_number, 10) : undefined,
-    status: dbTrail.current_status,
+    status: dbTrail.current_status || "Unknown",
+    region: dbTrail.region,
     area: dbTrail.area || undefined,
     categoryCode: dbTrail.category_code || "",
     category: dbTrail.category || "",
@@ -65,16 +69,21 @@ function mapSupabaseTrailToTrail(dbTrail: TrailWithStatus): Trail {
     descriptionShort: dbTrail.description_short || "",
     activityType: "Mountainbiking",
     gpxFile: dbTrail.gpx_file || "",
+    marker:
+      dbTrail.marker_lat != null && dbTrail.marker_lng != null
+        ? { lat: dbTrail.marker_lat, lng: dbTrail.marker_lng }
+        : undefined,
     statusDate: dbTrail.status_date || undefined,
     statusNotes: dbTrail.status_notes || undefined,
     statusCreatedAt: dbTrail.status_created_at || undefined,
   };
 }
 
-async function fetchTrails(): Promise<Trail[]> {
+async function fetchTrails(region: string): Promise<Trail[]> {
   const { data, error } = await getSupabase()
     .from("trails_with_status")
     .select("*")
+    .eq("region", region)
     .order("trail_number", { ascending: true, nullsFirst: false });
 
   if (error) {
@@ -85,10 +94,10 @@ async function fetchTrails(): Promise<Trail[]> {
   return (data as TrailWithStatus[]).map(mapSupabaseTrailToTrail);
 }
 
-export function useTrails() {
+export function useTrails(region: string) {
   return useQuery({
-    queryKey: ["trails"],
-    queryFn: fetchTrails,
+    queryKey: ["trails", region],
+    queryFn: () => fetchTrails(region),
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   });

@@ -16,11 +16,13 @@ export const difficultyBgClasses: Record<string, string> = {
 
 export const statusColors: Record<string, string> = {
   Open: "#22c55e", // green
+  Limited: "#f59e0b", // amber (e.g. "eingeschränkt offen")
   Closed: "#ef4444", // red
 };
 
 export const statusBgClasses: Record<string, string> = {
   Open: "bg-green-500",
+  Limited: "bg-amber-500",
   Closed: "bg-red-500",
 };
 

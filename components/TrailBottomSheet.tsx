@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getRegion } from "@/lib/regions";
 import {
   categoryColors,
   statusBgClasses,
@@ -33,6 +34,10 @@ export function TrailBottomSheet({
 
   const categoryColor = categoryColors[trail.category] || "#6b7280";
   const isExpanded = currentSnap >= 2; // Index 2+ is expanded (0.7 or 1)
+  const sourceName = getRegion(trail.region)?.sourceName ?? "source";
+  // Marker-only trails (no GPX) have no meaningful distance/elevation data
+  const hasGeometry = !!trail.gpxFile;
+  const showNotes = trail.statusNotes && !trail.statusNotes.startsWith("Auto-updated");
 
   const handleClose = () => {
     onOpenChange(false);
@@ -118,15 +123,25 @@ export function TrailBottomSheet({
               )}
             </div>
 
+            {/* Always visible: Status notes */}
+            {showNotes && (
+              <p className="text-xs text-muted-foreground italic mb-3">
+                {trail.statusNotes}
+              </p>
+            )}
+
             {/* Always visible: Elevation Profile */}
-            <div className="mb-3">
-              <ElevationProfile coordinates={coordinates} color={categoryColor} />
-            </div>
+            {hasGeometry && (
+              <div className="mb-3">
+                <ElevationProfile coordinates={coordinates} color={categoryColor} />
+              </div>
+            )}
 
             {/* Expanded only: Stats, Description, Link */}
             {isExpanded && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
                 {/* Stats */}
+                {hasGeometry && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Distance:</span>
@@ -157,6 +172,7 @@ export function TrailBottomSheet({
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Description */}
                 {trail.descriptionShort && (
@@ -172,7 +188,7 @@ export function TrailBottomSheet({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                 >
-                  View on Finale Outdoor
+                  View on {sourceName}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="12"

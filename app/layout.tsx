@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Finale Ligure Trail Map",
+  title: "Trail Map — Finale · Freiburg · Schliersee",
   description:
-    "Finale Ligure interactive trail map with up-to-date trail status",
+    "Interactive MTB trail maps with up-to-date trail status for Finale Ligure, Freiburg and Schliersee",
 };
 
 export default function RootLayout({

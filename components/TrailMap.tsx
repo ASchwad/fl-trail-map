@@ -10,6 +10,7 @@ import {
   useMap,
   useMapEvents,
   Marker,
+  CircleMarker,
 } from "react-leaflet";
 import L, { LatLng, LeafletMouseEvent } from "leaflet";
 import { Trail, GpxCoordinate } from "@/types/trail";
@@ -32,11 +33,9 @@ interface TrailMapProps {
   colorMode?: ColorMode;
   zoomToTrail?: Trail | null;
   showPopup?: boolean;
+  center: [number, number];
+  zoom: number;
 }
-
-// Finale Ligure center coordinates
-const CENTER: [number, number] = [44.17, 8.35];
-const DEFAULT_ZOOM = 12;
 
 function getTrailColor(trail: Trail, colorMode: ColorMode): string {
   if (colorMode === "status") {
@@ -67,25 +66,27 @@ function TrailLabel({
   coordinates,
   isSelected,
   onClick,
+  minZoom = 14,
 }: {
   trail: Trail;
   coordinates: GpxCoordinate[];
   isSelected: boolean;
   onClick: () => void;
+  minZoom?: number;
 }) {
   const map = useMap();
   const [showLabel, setShowLabel] = useState(false);
 
   useEffect(() => {
     const updateVisibility = () => {
-      setShowLabel(map.getZoom() >= 14);
+      setShowLabel(map.getZoom() >= minZoom);
     };
     updateVisibility();
     map.on("zoomend", updateVisibility);
     return () => {
       map.off("zoomend", updateVisibility);
     };
-  }, [map]);
+  }, [map, minZoom]);
 
   if (!showLabel || coordinates.length === 0) return null;
 
@@ -191,6 +192,47 @@ function TrailRoute({
   );
 }
 
+// Point marker for trails without GPX geometry (e.g. GSV/Schliersee)
+function TrailMarker({
+  trail,
+  isSelected,
+  colorMode,
+  onTrailClick,
+}: TrailRouteProps) {
+  if (!trail.marker) return null;
+
+  const position: [number, number] = [trail.marker.lat, trail.marker.lng];
+  const color = getTrailColor(trail, colorMode);
+  const handleClick = () => {
+    onTrailClick(trail, new LatLng(position[0], position[1]), []);
+  };
+
+  return (
+    <>
+      <CircleMarker
+        center={position}
+        radius={isSelected ? 11 : 9}
+        pathOptions={{
+          color: isSelected ? "#000" : "#fff",
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 1,
+        }}
+        eventHandlers={{
+          click: handleClick,
+        }}
+      />
+      <TrailLabel
+        trail={trail}
+        coordinates={[trail.marker]}
+        isSelected={isSelected}
+        minZoom={12}
+        onClick={handleClick}
+      />
+    </>
+  );
+}
+
 // Component to handle clicks on empty map area (deselect trail)
 function MapClickHandler({
   onMapClick,
@@ -215,10 +257,17 @@ function MapClickHandler({
 // Component to fly to a trail when selected from search
 function FlyToTrail({ trail }: { trail: Trail | null }) {
   const map = useMap();
-  const [lastTrailSlug, setLastTrailSlug] = useState<string | null>(null);
+  const lastTrailSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!trail || trail.slug === lastTrailSlug) return;
+    if (!trail || trail.slug === lastTrailSlugRef.current) return;
+
+    // Marker-only trail: fly straight to the point
+    if (!trail.gpxFile && trail.marker) {
+      map.flyTo([trail.marker.lat, trail.marker.lng], 15);
+      lastTrailSlugRef.current = trail.slug;
+      return;
+    }
 
     // Load GPX and fly to bounds
     if (trail.gpxFile) {
@@ -229,12 +278,12 @@ function FlyToTrail({ trail }: { trail: Trail | null }) {
               coordinates.map((c) => [c.lat, c.lng] as [number, number])
             );
             map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-            setLastTrailSlug(trail.slug);
+            lastTrailSlugRef.current = trail.slug;
           }
         })
         .catch(console.error);
     }
-  }, [trail, map, lastTrailSlug]);
+  }, [trail, map]);
 
   return null;
 }
@@ -252,6 +301,8 @@ export default function TrailMap({
   colorMode = "difficulty",
   zoomToTrail = null,
   showPopup = true,
+  center,
+  zoom,
 }: TrailMapProps) {
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
   const trailClickedRef = useRef(false);
@@ -275,8 +326,8 @@ export default function TrailMap({
 
   return (
     <MapContainer
-      center={CENTER}
-      zoom={DEFAULT_ZOOM}
+      center={center}
+      zoom={zoom}
       className="h-full w-full"
       scrollWheelZoom={true}
       zoomControl={false}
@@ -315,15 +366,25 @@ export default function TrailMap({
           />
         </LayersControl.BaseLayer>
       </LayersControl>
-      {trails.map((trail) => (
-        <TrailRoute
-          key={trail.slug}
-          trail={trail}
-          isSelected={selectedTrail?.slug === trail.slug}
-          colorMode={colorMode}
-          onTrailClick={handleTrailClick}
-        />
-      ))}
+      {trails.map((trail) =>
+        trail.gpxFile ? (
+          <TrailRoute
+            key={trail.slug}
+            trail={trail}
+            isSelected={selectedTrail?.slug === trail.slug}
+            colorMode={colorMode}
+            onTrailClick={handleTrailClick}
+          />
+        ) : trail.marker ? (
+          <TrailMarker
+            key={trail.slug}
+            trail={trail}
+            isSelected={selectedTrail?.slug === trail.slug}
+            colorMode={colorMode}
+            onTrailClick={handleTrailClick}
+          />
+        ) : null
+      )}
 
       {/* Trail Detail Popup - only show on desktop when showPopup is true */}
       {showPopup && popupInfo && (

@@ -22,6 +22,10 @@ interface FilterPanelProps {
   onStatusesChange: (statuses: string[]) => void;
   selectedDifficulties: string[];
   onDifficultiesChange: (difficulties: string[]) => void;
+  // Available options (derived from the current region's trails)
+  categoryOptions: string[];
+  statusOptions: string[];
+  difficultyOptions: string[];
   // Display options
   colorMode: ColorMode;
   onColorModeChange: (mode: ColorMode) => void;
@@ -32,21 +36,7 @@ interface FilterPanelProps {
   lastStatusUpdate?: string | null;
 }
 
-const categories = [
-  "Enduro",
-  "All Mountain",
-  "Cross Country",
-  "eMTB",
-  "Gravel",
-  "LBL",
-];
-
-const statusOptions = ["Open", "Closed"];
-
-// S1-S4 singletrail difficulty scale (S0 is too easy for MTB, S5 is extremely rare)
-const difficultyOptions = ["S1", "S2", "S3", "S4"];
-
-function toggleSelection(current: string[], value: string, allOptions: string[]): string[] {
+function toggleSelection(current: string[], value: string): string[] {
   if (current.includes(value)) {
     // Remove it
     const newSelection = current.filter((v) => v !== value);
@@ -69,6 +59,9 @@ export function FilterPanel({
   onStatusesChange,
   selectedDifficulties,
   onDifficultiesChange,
+  categoryOptions,
+  statusOptions,
+  difficultyOptions,
   colorMode,
   onColorModeChange,
   filteredCount,
@@ -84,15 +77,15 @@ export function FilterPanel({
   const [isDisplayOpen, setIsDisplayOpen] = useState(!getInitialCollapsed());
 
   const handleCategoryClick = (cat: string) => {
-    onCategoriesChange(toggleSelection(selectedCategories, cat, categories));
+    onCategoriesChange(toggleSelection(selectedCategories, cat));
   };
 
   const handleStatusClick = (status: string) => {
-    onStatusesChange(toggleSelection(selectedStatuses, status, statusOptions));
+    onStatusesChange(toggleSelection(selectedStatuses, status));
   };
 
   const handleDifficultyClick = (difficulty: string) => {
-    onDifficultiesChange(toggleSelection(selectedDifficulties, difficulty, difficultyOptions));
+    onDifficultiesChange(toggleSelection(selectedDifficulties, difficulty));
   };
 
   const handleAllCategories = () => {
@@ -131,7 +124,8 @@ export function FilterPanel({
 
         {isFilterOpen && (
           <div className="px-3 pb-3 space-y-3">
-            {/* Difficulty Filter */}
+            {/* Difficulty Filter (hidden when the region has no difficulty data) */}
+            {difficultyOptions.length > 0 && (
             <div>
               <span className="text-xs text-muted-foreground block mb-1.5">
                 Difficulty (Singletrail Scale)
@@ -160,21 +154,23 @@ export function FilterPanel({
                 })}
               </div>
             </div>
+            )}
 
             {/* Type/Category Filter */}
+            {categoryOptions.length > 0 && (
             <div>
               <span className="text-xs text-muted-foreground block mb-1.5">
                 Trail Type
               </span>
               <div className="flex flex-wrap gap-1">
                 <Badge
-                  variant={isAllSelected(selectedCategories, categories) ? "default" : "outline"}
+                  variant={isAllSelected(selectedCategories, categoryOptions) ? "default" : "outline"}
                   className="cursor-pointer text-xs"
                   onClick={handleAllCategories}
                 >
                   All
                 </Badge>
-                {categories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <Badge
                     key={cat}
                     variant={selectedCategories.includes(cat) ? "default" : "outline"}
@@ -186,6 +182,7 @@ export function FilterPanel({
                 ))}
               </div>
             </div>
+            )}
 
             {/* Status Filter */}
             <div>

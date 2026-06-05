@@ -3,6 +3,7 @@
 import { Trail, GpxCoordinate } from "@/types/trail";
 import { Badge } from "@/components/ui/badge";
 import { ElevationProfile } from "@/components/ElevationProfile";
+import { getRegion } from "@/lib/regions";
 import { cn } from "@/lib/utils";
 import {
   categoryColors,
@@ -22,6 +23,10 @@ export function TrailPopupContent({
   className,
 }: TrailPopupContentProps) {
   const categoryColor = categoryColors[trail.category] || "#6b7280";
+  const sourceName = getRegion(trail.region)?.sourceName ?? "source";
+  // Marker-only trails (no GPX) have no meaningful distance/elevation data
+  const hasGeometry = !!trail.gpxFile;
+  const showNotes = trail.statusNotes && !trail.statusNotes.startsWith("Auto-updated");
 
   return (
     <div className={cn("min-w-70 max-w-80", className)}>
@@ -68,7 +73,15 @@ export function TrailPopupContent({
         )}
       </div>
 
+      {/* Status notes (e.g. "Forstarbeiten", "Sektion 3 gesperrt") */}
+      {showNotes && (
+        <p className="text-xs text-muted-foreground italic mb-3">
+          {trail.statusNotes}
+        </p>
+      )}
+
       {/* Stats */}
+      {hasGeometry && (
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Distance:</span>
@@ -99,14 +112,17 @@ export function TrailPopupContent({
           </div>
         )}
       </div>
+      )}
 
       {/* Elevation Profile */}
+      {hasGeometry && (
       <div className="mb-3">
         <div className="text-xs text-muted-foreground mb-1">
           Elevation Profile
         </div>
         <ElevationProfile coordinates={coordinates} color={categoryColor} />
       </div>
+      )}
 
       {/* Description */}
       {trail.descriptionShort && (
@@ -122,7 +138,7 @@ export function TrailPopupContent({
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
       >
-        View on Finale Outdoor
+        View on {sourceName}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="12"
