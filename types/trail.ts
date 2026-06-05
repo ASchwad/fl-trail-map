@@ -1,3 +1,5 @@
+export type TrailStatus = "Open" | "Limited" | "Closed" | "Unknown";
+
 export interface Trail {
   sourceUrl: string;
   slug: string;
@@ -5,7 +7,8 @@ export interface Trail {
   fullName: string;
   name: string;
   id?: number;
-  status: "Open" | "Closed";
+  status: TrailStatus;
+  region: string;
   area?: string;
   categoryCode: string;
   category: string;
@@ -34,6 +37,8 @@ export interface Trail {
   descriptionShort: string;
   activityType: string;
   gpxFile: string;
+  /** Fallback point for trails without GPX geometry (e.g. GSV/Schliersee) */
+  marker?: GpxCoordinate;
   // Status metadata from Supabase
   statusDate?: string;
   statusNotes?: string;

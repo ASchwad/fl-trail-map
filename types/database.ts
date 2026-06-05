@@ -1,3 +1,5 @@
+export type TrailStatusValue = "Open" | "Limited" | "Closed";
+
 export interface Database {
   public: {
     Tables: {
@@ -10,6 +12,7 @@ export interface Database {
           full_name: string;
           name: string;
           area: string | null;
+          region: string;
           category_code: string | null;
           category: string | null;
           difficulty_technical: string | null;
@@ -22,6 +25,8 @@ export interface Database {
           duration_minutes: number | null;
           description_short: string | null;
           gpx_file: string | null;
+          marker_lat: number | null;
+          marker_lng: number | null;
           source_url: string | null;
           created_at: string;
           updated_at: string;
@@ -33,7 +38,7 @@ export interface Database {
         Row: {
           id: string;
           trail_id: string;
-          status: "Open" | "Closed";
+          status: TrailStatusValue;
           status_date: string;
           notes: string | null;
           created_at: string;
@@ -45,7 +50,7 @@ export interface Database {
     Views: {
       trails_with_status: {
         Row: Database["public"]["Tables"]["trails"]["Row"] & {
-          current_status: "Open" | "Closed";
+          current_status: TrailStatusValue | "Unknown";
           status_date: string | null;
           status_notes: string | null;
         };
