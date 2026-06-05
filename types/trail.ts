@@ -1,6 +1,8 @@
 export type TrailStatus = "Open" | "Limited" | "Closed" | "Unknown";
 
 export interface Trail {
+  /** Database UUID (trails.id) — used for status history lookups */
+  dbId: string;
   sourceUrl: string;
   slug: string;
   outdooractiveId: number;

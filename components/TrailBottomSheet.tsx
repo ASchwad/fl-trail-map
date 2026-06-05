@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sheet } from "react-modal-sheet";
 import { Trail, GpxCoordinate } from "@/types/trail";
 import { ElevationProfile } from "@/components/ElevationProfile";
+import { TrailStatusSummary, TrailStatusChart } from "@/components/TrailStatusHistory";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -137,9 +138,12 @@ export function TrailBottomSheet({
               </div>
             )}
 
-            {/* Expanded only: Stats, Description, Link */}
+            {/* Expanded only: Status history, Stats, Description, Link */}
             {isExpanded && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+                {/* Status streak + last closure */}
+                <TrailStatusSummary trail={trail} />
+
                 {/* Stats */}
                 {hasGeometry && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
@@ -173,6 +177,9 @@ export function TrailBottomSheet({
                   )}
                 </div>
                 )}
+
+                {/* Monthly open % bars */}
+                <TrailStatusChart trail={trail} />
 
                 {/* Description */}
                 {trail.descriptionShort && (

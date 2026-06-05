@@ -3,6 +3,7 @@
 import { Trail, GpxCoordinate } from "@/types/trail";
 import { Badge } from "@/components/ui/badge";
 import { ElevationProfile } from "@/components/ElevationProfile";
+import { TrailStatusSummary, TrailStatusChart } from "@/components/TrailStatusHistory";
 import { getRegion } from "@/lib/regions";
 import { cn } from "@/lib/utils";
 import {
@@ -29,7 +30,16 @@ export function TrailPopupContent({
   const showNotes = trail.statusNotes && !trail.statusNotes.startsWith("Auto-updated");
 
   return (
-    <div className={cn("min-w-70 max-w-80", className)}>
+    // Fixed height for GPX trails (content always exceeds it; async chart
+    // loading must not resize the popup after Leaflet's layout pass).
+    // Marker-only trails have short content and just cap at the max.
+    <div
+      className={cn(
+        "w-80 overflow-y-auto p-4",
+        hasGeometry ? "h-[400px]" : "max-h-[400px]",
+        className
+      )}
+    >
       {/* Header */}
       <div className="mb-2">
         <div className="flex items-center gap-2 mb-1">
@@ -80,6 +90,9 @@ export function TrailPopupContent({
         </p>
       )}
 
+      {/* Status streak + last closure */}
+      <TrailStatusSummary trail={trail} />
+
       {/* Stats */}
       {hasGeometry && (
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
@@ -123,6 +136,9 @@ export function TrailPopupContent({
         <ElevationProfile coordinates={coordinates} color={categoryColor} />
       </div>
       )}
+
+      {/* Monthly open % bars */}
+      <TrailStatusChart trail={trail} />
 
       {/* Description */}
       {trail.descriptionShort && (

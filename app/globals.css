@@ -124,3 +124,21 @@
     @apply bg-background text-foreground h-full overflow-hidden;
   }
 }
+
+/* Trail popups scroll internally: remove Leaflet's content margin so the
+   scrollbar sits at the card edge (padding lives inside the scroll container).
+   Extra specificity needed — leaflet.css is imported later in the bundle. */
+.leaflet-popup .leaflet-popup-content {
+  margin: 0;
+}
+.leaflet-popup .leaflet-popup-content-wrapper {
+  overflow: hidden; /* clip the scrollbar to the rounded corners */
+}
+/* Inset the close button so it doesn't sit on the scrollbar track.
+   Selector must out-specify leaflet.css's `.leaflet-container a.leaflet-popup-close-button` */
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button {
+  top: 10px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+}

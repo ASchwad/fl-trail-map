@@ -390,6 +390,13 @@ export default function TrailMap({
       {showPopup && popupInfo && (
         <Popup
           position={popupInfo.position}
+          // Match TrailPopupContent's fixed width (w-80) so Leaflet's measured
+          // width agrees with the scroll container and the scrollbar sits flush
+          minWidth={320}
+          maxWidth={320}
+          // Keep popups clear of the filter panel (left) and search bar (top)
+          autoPanPaddingTopLeft={[304, 72]}
+          autoPanPaddingBottomRight={[16, 16]}
           eventHandlers={{
             remove: () => setPopupInfo(null),
           }}

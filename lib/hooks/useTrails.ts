@@ -38,6 +38,7 @@ interface TrailWithStatus {
 
 function mapSupabaseTrailToTrail(dbTrail: TrailWithStatus): Trail {
   return {
+    dbId: dbTrail.id,
     sourceUrl: dbTrail.source_url || "",
     slug: dbTrail.slug,
     outdooractiveId: dbTrail.outdooractive_id || 0,
