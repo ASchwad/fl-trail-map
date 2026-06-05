@@ -55,6 +55,16 @@ export interface Database {
           status_notes: string | null;
         };
       };
+      trail_status_daily: {
+        Row: {
+          trail_id: string;
+          day: string;
+          samples: number;
+          open_samples: number;
+          limited_samples: number;
+          closed_samples: number;
+        };
+      };
     };
   };
 }
