@@ -37,4 +37,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: gautamkrishnar/keepalive-workflow@v2
+      - name: Re-enable workflow (resets inactivity timer)
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/update-trail-status.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
