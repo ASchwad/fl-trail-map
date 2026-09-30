@@ -163,13 +163,24 @@ function TrailRoute({
           click: handleClick,
         }}
       />
+      {/* White casing so trails stand out against the busy topo base map */}
+      <Polyline
+        positions={positions}
+        interactive={false}
+        pathOptions={{
+          color: "#fff",
+          weight: isSelected ? 8 : 6,
+          opacity: 0.9,
+        }}
+      />
       {/* Visible trail polyline */}
       <Polyline
         positions={positions}
+        interactive={false}
         pathOptions={{
           color: isSelected ? "#000" : color,
-          weight: isSelected ? 4 : 2,
-          opacity: isSelected ? 1 : 0.6,
+          weight: isSelected ? 5 : 3.5,
+          opacity: 1,
         }}
       />
       {/* Trail name label */}
@@ -337,6 +348,7 @@ export default function TrailMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
         url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
         maxZoom={17}
+        className="topo-base"
       />
       {trails.map((trail) =>
         trail.gpxFile ? (

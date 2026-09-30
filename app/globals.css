@@ -142,3 +142,8 @@
   background: rgba(255, 255, 255, 0.9);
   border-radius: 9999px;
 }
+/* Fade the OpenTopoMap base layer so trail overlays remain readable */
+.topo-base {
+  filter: saturate(0.35) brightness(1.08) contrast(0.85);
+  opacity: 0.8;
+}
