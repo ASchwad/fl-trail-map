@@ -6,7 +6,6 @@ import {
   TileLayer,
   Polyline,
   Popup,
-  LayersControl,
   useMap,
   useMapEvents,
   Marker,
@@ -334,38 +333,11 @@ export default function TrailMap({
     >
       <FlyToTrail trail={zoomToTrail} />
       <MapClickHandler onMapClick={handleMapClick} trailClickedRef={trailClickedRef} />
-      <LayersControl position="topright">
-        <LayersControl.BaseLayer name="CartoDB Positron" checked>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="CartoDB Voyager">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="CartoDB Dark">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="OpenTopoMap">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
-            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-          />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="OpenStreetMap">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-        </LayersControl.BaseLayer>
-      </LayersControl>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+        url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+        maxZoom={17}
+      />
       {trails.map((trail) =>
         trail.gpxFile ? (
           <TrailRoute
