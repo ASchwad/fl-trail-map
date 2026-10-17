@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import {
   MapContainer,
-  TileLayer,
   Polyline,
   Popup,
   useMap,
@@ -12,6 +11,7 @@ import {
   CircleMarker,
 } from "react-leaflet";
 import L, { LatLng, LeafletMouseEvent } from "leaflet";
+import "@maplibre/maplibre-gl-leaflet";
 import { Trail, GpxCoordinate } from "@/types/trail";
 import { parseGpxFile } from "@/lib/gpx-parser";
 import { TrailPopupContent } from "@/components/TrailPopupContent";
@@ -22,6 +22,28 @@ import {
   unknownStatusColor,
 } from "@/lib/trail-colors";
 import "leaflet/dist/leaflet.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+const POSITRON_STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
+const POSITRON_ATTRIBUTION =
+  '<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+// Vector Positron basemap (OpenFreeMap, no API key) rendered via MapLibre inside Leaflet
+function PositronBaseLayer() {
+  const map = useMap();
+
+  useEffect(() => {
+    const layer = L.maplibreGL({ style: POSITRON_STYLE_URL, attributionControl: false });
+    layer.addTo(map);
+    map.attributionControl?.addAttribution(POSITRON_ATTRIBUTION);
+    return () => {
+      map.attributionControl?.removeAttribution(POSITRON_ATTRIBUTION);
+      layer.remove();
+    };
+  }, [map]);
+
+  return null;
+}
 
 export type ColorMode = "difficulty" | "status";
 
@@ -163,7 +185,7 @@ function TrailRoute({
           click: handleClick,
         }}
       />
-      {/* White casing so trails stand out against the busy topo base map */}
+      {/* White casing so trails stand out against the base map */}
       <Polyline
         positions={positions}
         interactive={false}
@@ -344,12 +366,7 @@ export default function TrailMap({
     >
       <FlyToTrail trail={zoomToTrail} />
       <MapClickHandler onMapClick={handleMapClick} trailClickedRef={trailClickedRef} />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
-        url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-        maxZoom={17}
-        className="topo-base"
-      />
+      <PositronBaseLayer />
       {trails.map((trail) =>
         trail.gpxFile ? (
           <TrailRoute
